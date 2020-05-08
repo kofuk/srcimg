@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+# MIT License
+
+set -eu
+
+tmpdir="/tmp/srcimg-$(id -ur)-$RANDOM"
+config_dir="$HOME/.config/srcimg"
+ff_profile="$config_dir/firefox-profile"
+
+function print_usage() {
+    echo 'usage: srcimg SOURCE [OUT]'
+}
+
+if ! command -v firefox &>/dev/null; then
+    echo 'Firefox not found'
+    exit 1
+fi
+
+if ! command -v pygmentize &>/dev/null; then
+    echo 'Pygmentize not found'
+    exit 1
+fi
+
+if [ ! "$#" -eq 1 ] && [ ! "$#" -eq 2 ]; then
+    print_usage
+    exit 1
+fi
+
+if [ "$1" = '--help' ]; then
+    print_usage
+    exit
+fi
+
+outname='out.png'
+if [ "$#" -eq 2 ]; then
+    outname="$2"
+fi
+
+if [ ! -e "$config_dir/style.css" ]; then
+    curl -L 'https://raw.githubusercontent.com/dracula/pygments/master/dracula.css' > "$config_dir/style.css"
+fi
+
+mkdir -p "$tmpdir"
+
+pygmentize -o "$tmpdir/out.html" $1
+
+if [ ! -d "$ff_profile" ]; then
+    mkdir -p "$ff_profile"
+fi
+
+cat - "$tmpdir/out.html" >"$tmpdir/pretty.html" <<EOF
+<meta charset="utf-8">
+<style>
+  body {
+    min-height: 100%;
+    margin: 0;
+    padding: 10px;
+  }
+  div {
+    font-size: 25px;
+  }
+  $(cat "$config_dir/style.css")
+</style>
+<body class="highlight">
+EOF
+
+pushd "$tmpdir"
+python3 -m http.server --bind localhost 8900 &
+server_pid=$!
+popd
+
+firefox --profile "$ff_profile" --headless --screenshot "$outname" http://localhost:8900/pretty.html
+
+kill "$server_pid"
+rm -rf "$tmpdir"
