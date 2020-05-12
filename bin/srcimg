@@ -65,10 +65,10 @@ cat - "$tmpdir/out.html" >"$tmpdir/pretty.html" <<EOF
 <body class="highlight">
 EOF
 
-pushd "$tmpdir"
+pushd "$tmpdir" &>/dev/null
 python3 -m http.server --bind localhost 8900 &
 server_pid=$!
-popd
+popd &>/dev/null
 
 firefox --profile "$ff_profile" --headless --screenshot "$outname" http://localhost:8900/pretty.html
 
